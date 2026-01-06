@@ -1,0 +1,57 @@
+{
+  "sessions": [
+    {
+      "id": "38bebe0c",
+      "start_time": "2025-12-27 16:32:59",
+      "end_time": "2025-12-27 16:33:01",
+      "duration_minutes": 0.0,
+      "mode": "pomodoro",
+      "completed": true,
+      "pomodoro_count": 1,
+      "distraction_count": 0,
+      "notes": ""
+    },
+    {
+      "id": "6da998da",
+      "start_time": "2025-12-27 16:33:10",
+      "end_time": "2025-12-27 16:33:12",
+      "duration_minutes": 0.0,
+      "mode": "pomodoro",
+      "completed": true,
+      "pomodoro_count": 1,
+      "distraction_count": 0,
+      "notes": ""
+    },
+    {
+      "id": "25963786",
+      "start_time": "2025-12-27 16:52:01",
+      "end_time": "2025-12-27 16:52:03",
+      "duration_minutes": 0.0,
+      "mode": "pomodoro",
+      "completed": true,
+      "pomodoro_count": 1,
+      "distraction_count": 0,
+      "notes": ""
+    },
+    {
+      "id": "284362e6",
+      "start_time": "2025-12-27 16:52:18",
+      "end_time": "2025-12-27 16:52:20",
+      "duration_minutes": 0.0,
+      "mode": "pomodoro",
+      "completed": true,
+      "pomodoro_count": 1,
+      "distraction_count": 0,
+      "notes": ""
+    }
+  ],
+  "daily_goals": {},
+  "total_stats": {
+    "total_sessions": 4,
+    "total_minutes": 0.0,
+    "total_pomodoros": 4,
+    "longest_session": 0,
+    "current_streak": 1,
+    "best_streak": 1
+  }
+}
