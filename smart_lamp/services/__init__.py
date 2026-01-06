@@ -22,7 +22,7 @@ from .settings_service import SettingsService, Settings
 from .pet_service import PetService, PetState
 from .schedule_service import ScheduleService, Reminder
 from .study_service import StudyService, StudySession
-from .command_service import CommandService, Command, CommandResult, InputSource
+from .command_service import CommandService, Command, CommandResult, InputSource, ControlMode
 
 __all__ = [
     'ServiceManager',
@@ -30,5 +30,5 @@ __all__ = [
     'PetService', 'PetState',
     'ScheduleService', 'Reminder',
     'StudyService', 'StudySession',
-    'CommandService', 'Command', 'CommandResult', 'InputSource',
+    'CommandService', 'Command', 'CommandResult', 'InputSource', 'ControlMode',
 ]

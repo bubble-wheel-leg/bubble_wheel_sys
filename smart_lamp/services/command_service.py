@@ -33,6 +33,16 @@ class InputSource(str, Enum):
     REMOTE = "remote"      # 遥控器/网络
     SCHEDULE = "schedule"  # 定时任务
     SYSTEM = "system"      # 系统内部
+
+
+class ControlMode(str, Enum):
+    """控制模式 - 决定哪个输入源有控制权"""
+    UI_ONLY = "ui_only"           # 仅 UI 控制
+    VOICE_ONLY = "voice_only"     # 仅语音控制
+    REMOTE_ONLY = "remote_only"   # 仅遥控器控制
+    UI_VOICE = "ui_voice"         # UI + 语音
+    UI_REMOTE = "ui_remote"       # UI + 遥控器
+    ALL = "all"                   # 全部开放（默认）
     
 
 class CommandPriority(int, Enum):
@@ -179,7 +189,81 @@ class CommandService:
         self._queue: List[Command] = []
         self._processing = False
         
+        # ===== 控制权管理 =====
+        self._control_mode: ControlMode = ControlMode.ALL  # 默认全部开放
+        self._control_mode_callbacks: List[Callable[[ControlMode], None]] = []
+        
+        # 控制模式对应的允许输入源
+        self._allowed_sources: Dict[ControlMode, set] = {
+            ControlMode.UI_ONLY: {InputSource.UI, InputSource.SYSTEM, InputSource.SCHEDULE},
+            ControlMode.VOICE_ONLY: {InputSource.VOICE, InputSource.SYSTEM, InputSource.SCHEDULE},
+            ControlMode.REMOTE_ONLY: {InputSource.REMOTE, InputSource.SYSTEM, InputSource.SCHEDULE},
+            ControlMode.UI_VOICE: {InputSource.UI, InputSource.VOICE, InputSource.SYSTEM, InputSource.SCHEDULE},
+            ControlMode.UI_REMOTE: {InputSource.UI, InputSource.REMOTE, InputSource.SYSTEM, InputSource.SCHEDULE},
+            ControlMode.ALL: {InputSource.UI, InputSource.VOICE, InputSource.GESTURE, 
+                             InputSource.REMOTE, InputSource.SCHEDULE, InputSource.SYSTEM},
+        }
+        
         print("[Command] 命令服务初始化完成")
+    
+    # ========== 控制权管理 ==========
+    
+    @property
+    def control_mode(self) -> ControlMode:
+        """获取当前控制模式"""
+        return self._control_mode
+    
+    def set_control_mode(self, mode: ControlMode) -> bool:
+        """
+        设置控制模式
+        
+        Args:
+            mode: 控制模式
+            
+        Returns:
+            是否成功
+        """
+        if mode == self._control_mode:
+            return True
+        
+        old_mode = self._control_mode
+        self._control_mode = mode
+        
+        print(f"[Command] 控制模式切换: {old_mode.value} → {mode.value}")
+        
+        # 通知监听器
+        for callback in self._control_mode_callbacks:
+            try:
+                callback(mode)
+            except Exception as e:
+                print(f"[Command] 控制模式回调错误: {e}")
+        
+        return True
+    
+    def on_control_mode_change(self, callback: Callable[[ControlMode], None]):
+        """监听控制模式变化"""
+        self._control_mode_callbacks.append(callback)
+    
+    def is_source_allowed(self, source: InputSource) -> bool:
+        """检查输入源是否被允许"""
+        allowed = self._allowed_sources.get(self._control_mode, set())
+        return source in allowed
+    
+    def get_allowed_sources(self) -> List[str]:
+        """获取当前允许的输入源列表"""
+        allowed = self._allowed_sources.get(self._control_mode, set())
+        return [s.value for s in allowed]
+    
+    def get_control_mode_options(self) -> Dict[str, str]:
+        """获取所有控制模式选项（用于 UI 显示）"""
+        return {
+            ControlMode.UI_ONLY.value: "仅 UI 控制",
+            ControlMode.VOICE_ONLY.value: "仅语音控制",
+            ControlMode.REMOTE_ONLY.value: "仅遥控器控制",
+            ControlMode.UI_VOICE.value: "UI + 语音",
+            ControlMode.UI_REMOTE.value: "UI + 遥控器",
+            ControlMode.ALL.value: "全部开放",
+        }
     
     # ========== 指令注册 ==========
     
@@ -268,6 +352,17 @@ class CommandService:
     def _execute_command(self, cmd: Command) -> CommandResult:
         """内部执行指令"""
         with self._lock:
+            # 0. 控制权检查
+            if not self.is_source_allowed(cmd.source):
+                result = CommandResult(
+                    success=False,
+                    message=f"当前控制模式({self._control_mode.value})不允许 {cmd.source.value} 控制",
+                    error="SOURCE_NOT_ALLOWED"
+                )
+                print(f"[Command] 拒绝: {cmd.source.value} 无控制权")
+                self._notify_listeners(cmd, result)
+                return result
+            
             # 1. 拦截器处理
             for interceptor in self._interceptors:
                 modified = interceptor(cmd)

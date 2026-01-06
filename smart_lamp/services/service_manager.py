@@ -22,7 +22,7 @@ from .settings_service import SettingsService
 from .pet_service import PetService
 from .schedule_service import ScheduleService
 from .study_service import StudyService
-from .command_service import CommandService, CommandServiceIntegration, InputSource, CommandResult
+from .command_service import CommandService, CommandServiceIntegration, InputSource, CommandResult, ControlMode
 
 
 class ServiceManager:
@@ -267,6 +267,44 @@ class ServiceManager:
     def execute_voice(self, text: str) -> CommandResult:
         """从语音文本执行指令"""
         return self._command.execute_from_voice(text)
+    
+    # ========== 控制权管理 ==========
+    
+    def set_control_mode(self, mode: str) -> bool:
+        """
+        设置控制模式（UI 使用）
+        
+        Args:
+            mode: 控制模式
+                - "ui_only": 仅 UI 控制
+                - "voice_only": 仅语音控制  
+                - "remote_only": 仅遥控器控制
+                - "ui_voice": UI + 语音
+                - "ui_remote": UI + 遥控器
+                - "all": 全部开放
+        """
+        mode_map = {
+            "ui_only": ControlMode.UI_ONLY,
+            "voice_only": ControlMode.VOICE_ONLY,
+            "remote_only": ControlMode.REMOTE_ONLY,
+            "ui_voice": ControlMode.UI_VOICE,
+            "ui_remote": ControlMode.UI_REMOTE,
+            "all": ControlMode.ALL,
+        }
+        control_mode = mode_map.get(mode, ControlMode.ALL)
+        return self._command.set_control_mode(control_mode)
+    
+    def get_control_mode(self) -> str:
+        """获取当前控制模式"""
+        return self._command.control_mode.value
+    
+    def get_control_mode_options(self) -> dict:
+        """获取所有控制模式选项（用于 UI 下拉框）"""
+        return self._command.get_control_mode_options()
+    
+    def on_control_mode_change(self, callback):
+        """监听控制模式变化"""
+        self._command.on_control_mode_change(callback)
     
     def setup_controller(self, controller):
         """

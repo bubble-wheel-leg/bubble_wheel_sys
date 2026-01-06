@@ -36,6 +36,7 @@ class LampState(Enum):
     HAND_FOLLOW = auto()     # 手部跟随模式
     PET_MODE = auto()        # 桌宠模式
     BRIGHTNESS_MODE = auto() # 亮度调节模式
+    STUDY_MODE = auto()      # 学习模式
     
     # === 系统状态 ===
     ERROR = auto()           # 错误状态
@@ -57,6 +58,10 @@ MODE_NAMES = {
         '亮度调节', '亮度模式', '调节亮度',
         '量度调节', '量度模式',  # 同音词
         '调灯', '调亮度',
+    ],
+    LampState.STUDY_MODE: [
+        '学习模式', '专注模式', '番茄钟',
+        '学习', '专注', '写作业',
     ],
 }
 

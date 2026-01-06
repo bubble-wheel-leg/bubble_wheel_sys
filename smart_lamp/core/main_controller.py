@@ -42,6 +42,7 @@ class MainController:
         LampState.HAND_FOLLOW: HandFollowMode,
         LampState.PET_MODE: PetMode,
         LampState.BRIGHTNESS_MODE: BrightnessMode,
+        # LampState.STUDY_MODE: StudyMode,  # TODO: 创建后启用
     }
     
     # 模式名称映射（用于语音播报）
@@ -49,6 +50,7 @@ class MainController:
         LampState.HAND_FOLLOW: "手势跟随",
         LampState.PET_MODE: "桌宠",
         LampState.BRIGHTNESS_MODE: "亮度调节",
+        LampState.STUDY_MODE: "学习",
     }
     
     def __init__(self, config_path: str = "config/config.yaml"):
@@ -70,6 +72,9 @@ class MainController:
         # 🆕 初始化服务层
         data_dir = self.config.get('data_dir', 'data')
         self.services = ServiceManager(data_dir=data_dir)
+        
+        # 🆕 监听 UI 命令（关键桥梁！）
+        self._setup_command_bridge()
         
         # 状态机
         self.state_machine = StateMachine()
@@ -118,6 +123,133 @@ class MainController:
             timestamp = time.strftime("%H:%M:%S")
             print(f"[{timestamp}] [DEBUG] {message}")
     
+    # ==================== UI 命令桥接 ====================
+    
+    def _setup_command_bridge(self):
+        """
+        设置 UI 命令桥接
+        
+        当 UI 发送命令（通过 ServiceManager）时，MainController 监听并执行
+        这是 UI 和硬件之间的关键桥梁！
+        """
+        # 监听模式切换命令
+        self.services.command.add_listener(self._on_ui_command)
+        self._print("UI 命令桥接已建立")
+    
+    def _on_ui_command(self, cmd, result):
+        """
+        处理来自 UI 的命令
+        
+        Args:
+            cmd: Command 对象
+            result: CommandResult（ServiceManager 的返回值，我们可能需要覆盖它）
+        """
+        # 只处理成功的命令（已通过权限检查）
+        if not result.success:
+            return
+        
+        self._print(f"📱 收到 UI 命令: {cmd.name}", "INFO")
+        
+        # 模式切换命令
+        mode_commands = {
+            "enter_standby": LampState.STANDBY,
+            "enter_hand_follow": LampState.HAND_FOLLOW,
+            "enter_pet_mode": LampState.PET_MODE,
+            "enter_study_mode": LampState.STUDY_MODE,
+        }
+        
+        if cmd.name in mode_commands:
+            target_state = mode_commands[cmd.name]
+            self._switch_to_mode(target_state)
+            self._print(f"🎮 模式已切换: {target_state.value}", "MODE")
+        
+        # 灯光命令
+        elif cmd.name == "turn_on":
+            self._do_turn_on()
+        elif cmd.name == "turn_off":
+            self._do_turn_off()
+        elif cmd.name == "set_brightness":
+            value = cmd.params.get("value", 0.8)
+            self._do_set_brightness(value)
+        elif cmd.name == "brightness_up":
+            self._do_brightness_adjust(+0.1)
+        elif cmd.name == "brightness_down":
+            self._do_brightness_adjust(-0.1)
+        
+        # 宠物命令
+        elif cmd.name == "pet_interact":
+            action = cmd.params.get("action", "pet")
+            self._do_pet_action(action)
+    
+    def _do_turn_on(self):
+        """执行开灯"""
+        if self._lighting:
+            self._lighting.turn_on()
+            self._print("💡 灯已打开")
+    
+    def _do_turn_off(self):
+        """执行关灯"""
+        if self._lighting:
+            self._lighting.turn_off()
+            self._print("💡 灯已关闭")
+    
+    def _do_set_brightness(self, value: float):
+        """设置亮度"""
+        if self._lighting:
+            self._lighting.set_brightness(value)
+            self._print(f"💡 亮度: {int(value * 100)}%")
+    
+    def _do_brightness_adjust(self, delta: float):
+        """调整亮度"""
+        if self._lighting:
+            current = self._lighting.get_brightness()
+            new_value = max(0.0, min(1.0, current + delta))
+            self._lighting.set_brightness(new_value)
+            self._print(f"💡 亮度: {int(new_value * 100)}%")
+    
+    def _do_pet_action(self, action: str):
+        """执行宠物动作"""
+        if self._servo_thread:
+            # 根据 action 执行对应动作
+            action_map = {
+                "pet": "nod",      # 摸头 -> 点头
+                "play": "jump",    # 玩耍 -> 跳跃
+                "talk": "tilt",    # 说话 -> 歪头
+            }
+            servo_action = action_map.get(action, "nod")
+            self._servo_thread.add_action(servo_action)
+            self._print(f"🐾 宠物动作: {action} -> {servo_action}")
+    
+    def _switch_to_mode(self, target_state: LampState):
+        """
+        切换到目标模式（内部实现）
+        
+        Args:
+            target_state: 目标状态
+        """
+        # 退出当前模式
+        if self._current_mode:
+            self._current_mode.exit()
+            self._current_mode = None
+        
+        # 切换状态机
+        if target_state == LampState.STANDBY:
+            self.state_machine.to_standby()
+        else:
+            # 进入功能模式
+            self.state_machine.to_mode(target_state)
+            
+            # 创建并启动模式实例
+            mode_class = self.MODE_CLASSES.get(target_state)
+            if mode_class:
+                self._current_mode = mode_class(
+                    controller=self,
+                    camera=self._camera,
+                    servo_thread=self._servo_thread,
+                    speaker=self._speaker,
+                )
+                self._current_mode.enter()
+
     # ==================== 生命周期 ====================
     
     def start(self):
